@@ -4,6 +4,7 @@ import Data.Maybe
 import Data.Char
 import Data.List (last, findIndices)
 import Control.Monad
+import Control.Concurrent
 import Network.FastCGI
 import Text.StringTemplate
 import Database.SQLite
@@ -13,18 +14,14 @@ import Data.ByteString.Char8 (pack)
 
 dbName = "/home/travis/src/sayit/sayings.db"
 
-split :: Char -> String -> [String]
-split delim s
-    | [] <- rest = [token]
-    | otherwise = token : split delim (tail rest)
-        where (token,rest) = span (/=delim) s
-
+--Useful for some very rudimentary url parsing
 slashCount = length . findIndices (\x -> x == '/')
 lastChunk = reverse . takeWhile (\x -> x /= '/') . reverse
 getPNum uri
     | slashCount uri < 2 = ""
     | otherwise = lastChunk uri
 
+--Using Database.SQLite.insertRow didn't seem to work
 insertSaying ip said = do
     let tag = getTag said
     conn <- openConnection dbName
@@ -38,6 +35,7 @@ getSaying tag = do
     conn <- openConnection dbName
     let sql = "SELECT said FROM sayings WHERE tag = '" ++ tag ++ "' LIMIT 1"
     res <- (execStatement conn sql)::IO (Either String [[Row String]])
+    closeConnection conn
     case res of
         Left s -> return s
         Right [[[(_, sx)]]] -> return sx
@@ -49,10 +47,11 @@ getSayings = do
     res <- (execStatement conn sql)::IO (Either String [[Row String]])
     return res
 
+getTag :: String -> String
 getTag s = md5sum $ pack s
 
-handleGet :: STGroup String ->CGI CGIResult
-handleGet tg = do
+serve :: STGroup String ->CGI CGIResult
+serve tg = do
     let baseTemplate = case (getStringTemplate "base" tg) of
                 Just tmpl -> tmpl
                 _ -> newSTMP "uh oh"
@@ -77,12 +76,13 @@ handleGet tg = do
                     redirect url
                 Nothing -> redirect "/sayit"
 
+getGroup :: IO (STGroup String)
 getGroup = do
     grp <- directoryGroup "/home/travis/src/sayit/templates" :: IO (STGroup String)
     return grp
 
 main = do
     grp <- getGroup
-    runFastCGIorCGI (handleGet grp)
---main = runFastCGIConcurrent' forkIO 10 handleGet
---main = runFastCGIorCGI handleGet
+    --runFastCGIorCGI (serve grp)
+    runFastCGIConcurrent' forkIO 10 (serve grp)
+

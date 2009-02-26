@@ -10,7 +10,7 @@
                 font-style: bold;
             }
             h1 {
-                font-size: 5em;
+                font-size: 4em;
             }
             #content {
                 width: 700px;
