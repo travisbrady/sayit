@@ -1,15 +1,12 @@
 module Main where
 
-import Data.Maybe
-import Data.Char
 import Data.List (last, findIndices)
-import Control.Monad
-import Control.Concurrent
+import Control.Concurrent (forkIO)
 import Network.FastCGI
 import Text.StringTemplate
 import Database.SQLite
 import Network.URI (uriPath)
-import Data.Digest.OpenSSL.MD5
+import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.ByteString.Char8 (pack)
 
 dbName = "/home/travis/src/sayit/sayings.db"
