@@ -1,6 +1,7 @@
 module Main where
 
-import Data.List (last, findIndices)
+import Data.List (last, findIndices, isInfixOf)
+import Data.Char (isSpace)
 import Control.Concurrent (forkIO)
 import Network.FastCGI
 import Text.StringTemplate
@@ -10,6 +11,10 @@ import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.ByteString.Char8 (pack)
 
 dbName = "/home/travis/src/sayit/sayings.db"
+
+isDirty s = or $ map (\x -> x `isInfixOf` spaceless) naughty
+    where spaceless = filter (\x -> (isSpace x)==False) s
+          naughty = ["<iframe", "<script"]
 
 --Useful for some very rudimentary url parsing
 slashCount = length . findIndices (\x -> x == '/')
@@ -68,9 +73,12 @@ serve tg = do
             case sfo of
                 Just said -> do
                     let truncSaid = take 1000 said
-                    sayTag <- liftIO $ insertSaying ip truncSaid
-                    let url = "/sayit/" ++ sayTag
-                    redirect url
+                    case (isDirty truncSaid) of
+                        False -> do
+                            sayTag <- liftIO $ insertSaying ip truncSaid
+                            let url = "/sayit/" ++ sayTag
+                            redirect url
+                        True -> redirect "/sayit"
                 Nothing -> redirect "/sayit"
 
 getGroup :: IO (STGroup String)
